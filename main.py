@@ -4,9 +4,10 @@ import aiohttp
 from datetime import datetime
 from bs4 import BeautifulSoup
 import os
+from discord.ext import commands
 
 intents = discord.Intents.default()
-bot = discord.Bot(intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 tracked_accounts = {}
 
