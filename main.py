@@ -1,17 +1,16 @@
 import discord
+from discord.ext import commands
 import asyncio
 import aiohttp
 from datetime import datetime
 from bs4 import BeautifulSoup
-import os
-from discord.ext import commands
 
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# A dictionary to store the monitored accounts and their details
 tracked_accounts = {}
 
-# Check if Instagram account exists and get follower count
 async def check_instagram(username):
     url = f"https://www.instagram.com/{username}/"
     headers = {
@@ -22,16 +21,16 @@ async def check_instagram(username):
         async with session.get(url, headers=headers) as resp:
             text = await resp.text()
 
-            # Detect "page not available" message
+            # If the page does not exist or is unavailable
             if (
                 "Sorry, this page isn't available." in text or
                 "The link you followed may be broken" in text or
                 "page may have been removed" in text
             ):
-                return False, None  # Still banned
+                return False, None
 
-            # Try to extract followers
             try:
+                # Parse the HTML page to get Instagram data
                 soup = BeautifulSoup(text, "html.parser")
                 scripts = soup.find_all("script", type="application/ld+json")
                 for script in scripts:
@@ -45,7 +44,7 @@ async def check_instagram(username):
             except:
                 return True, "Unknown"
 
-# Background monitor task
+# Function to monitor the username and report the recovery status
 async def monitor_username(username, channel):
     while True:
         is_online, followers = await check_instagram(username)
@@ -60,10 +59,11 @@ async def monitor_username(username, channel):
 
             time_taken = f"{days} days {hours} hours {minutes} minutes {seconds} seconds"
 
+            # Send message in the Discord channel
             await channel.send(
                 f"**Account Recovered** | @{username} | Time Taken: {time_taken} | Followers: {followers}"
             )
-            del tracked_accounts[username]
+            del tracked_accounts[username]  # Remove from tracked accounts after recovery
             break
 
         await asyncio.sleep(600)  # Check every 10 minutes
@@ -72,7 +72,6 @@ async def monitor_username(username, channel):
 async def on_ready():
     print(f'Logged in as {bot.user}')
 
-# Add one username
 @bot.slash_command(name="addmonitor", description="Add a single Instagram username to monitor.")
 async def addmonitor(ctx, username: str):
     username = username.lower()
@@ -81,6 +80,7 @@ async def addmonitor(ctx, username: str):
         await ctx.respond(f"@{username} is already being monitored.")
         return
 
+    # Start monitoring this username
     tracked_accounts[username] = {
         "start_time": datetime.utcnow(),
         "channel": ctx.channel
@@ -89,7 +89,6 @@ async def addmonitor(ctx, username: str):
     await ctx.respond(f"Started monitoring @{username}...")
     asyncio.create_task(monitor_username(username, ctx.channel))
 
-# Add multiple usernames
 @bot.slash_command(name="addmonitors", description="Add multiple Instagram usernames to monitor (comma separated).")
 async def addmonitors(ctx, usernames: str):
     names = [name.strip().lower() for name in usernames.split(",")]
@@ -115,7 +114,6 @@ async def addmonitors(ctx, usernames: str):
 
     await ctx.respond(response)
 
-# List all monitored usernames
 @bot.slash_command(name="listmonitored", description="List all currently monitored Instagram usernames.")
 async def listmonitored(ctx):
     if not tracked_accounts:
@@ -136,5 +134,5 @@ async def listmonitored(ctx):
 
     await ctx.respond(response)
 
-# Start the bot
+
 bot.run(os.getenv("MTM2MzAyODM4NTIxMDgzMDg0OA.GJiIw4.0hiSNHPH-qgfYY30RyxcE2qXCTzd5L2ymNiMYI"))
